@@ -1,0 +1,6 @@
+include 'hpe/hpe_base.gin'
+
+inference_fn = @hpe.get_baseline_inference
+
+hpe.get_baseline_inference.filters = 128
+hpe.get_baseline_inference.num_blocks = 1

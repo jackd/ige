@@ -1,0 +1,23 @@
+import ige.runners
+import ige.hpe.problem
+import ige.hpe.models
+import ige.hpe.losses
+
+include 'base.gin'
+
+default_model_dir.subdir = 'hpe'
+
+batch_size = 64
+epochs = 200
+problem = @hpe.HpeProblem()
+hpe.HpeProblem.include_procrustes = %include_procrustes
+include_procrustes = False  # slow - override at command line for one-off eval
+
+inference_fn = @hpe.get_baseline_inference
+lr_schedule = @exponential_decay_lr_schedule()
+exponential_decay_lr_schedule.factor = 0.99  # close to 0.96 per 100k
+exponential_decay_lr_schedule.lr0 = 1e-3
+
+main.train.checkpoint_freq = 5
+main.train.validation_freq = 2
+main.train.summary_freq = 10000  # stil 24x per epoch

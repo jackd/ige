@@ -1,0 +1,28 @@
+######### Template Start #########
+# import ige.unopt
+# include 'hpe/BASE_ESTIMATE_MODEL.gin'
+# include 'hpe/ige.gin'
+# init_model_id = 'BASE_ESTIMATE_MODEL'
+# num_steps = whatever
+########## Template End ##########
+
+import ige.runners
+
+hpe.HpeProblem.include_intrinsics = True
+hpe.HpeProblem.prediction_is_sequence = True
+
+inference_fn = @hpe.get_ige_inference
+hpe.get_ige_inference.y0_inference_fn = @hpe.get_baseline_inference
+hpe.get_ige_inference.y0_model_weights_path = @init/default_model_dir()
+init/default_model_dir.model_id = %init_model_id
+init_model_id = None
+
+UnrolledSGD.num_steps = %num_steps
+UnrolledSGD.learning_rate = 1.0
+UnrolledSGD.gradient_clip_value = 1.0
+UnrolledSGD.momentum = 0.1
+UnrolledSGD.learn_learning_rate = True
+UnrolledSGD.learn_gradient_clip_value = True
+UnrolledSGD.learn_momentum = True
+
+num_steps = 4

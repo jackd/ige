@@ -1,0 +1,5 @@
+wget
+numpy
+tensorflow_datasets
+gin-config
+tqdm

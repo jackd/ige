@@ -1,0 +1,34 @@
+import ige.runners
+import ige.gin_keras
+
+main.train.problem = %problem
+main.train.batch_size = %batch_size
+main.train.epochs = %epochs
+main.train.inference_fn = %inference_fn
+main.train.optimizer = %optimizer
+main.train.model_dir = %model_dir
+main.train.lr_schedule = %lr_schedule
+
+main.evaluate.problem = %problem
+main.evaluate.batch_size = %batch_size
+main.evaluate.inference_fn = %inference_fn
+main.evaluate.optimizer = %optimizer
+
+main.print_config.problem = %problem
+main.print_config.batch_size = %batch_size
+main.print_config.inference_fn = %inference_fn
+main.print_config.optimizer = %optimizer
+
+main.vis.problem = %problem
+main.vis.inference_fn = %inference_fn
+main.vis.model_dir = %model_dir
+
+optimizer = @optimizers.Adam()
+lr_schedule = None
+
+model_dir = None
+
+problem = None
+batch_size = None
+epochs = None
+inference_fn = None
