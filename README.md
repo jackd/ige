@@ -1,6 +1,6 @@
 # Inverse Graphics Energy Networks (IGE-Net)
 
-Code for [IGE-Net: Inverse Graphics Energy Networks for 3D Human Pose Estimation and Object Reconstruction](http://openaccess.thecvf.com/content_CVPR_2019/papers/Jack_IGE-Net_Inverse_Graphics_Energy_Networks_for_Human_Pose_Estimation_and_CVPR_2019_paper.pdf) ([poser](https://jackd.github.io/images/ige-poster.pdf)).
+Code for [IGE-Net: Inverse Graphics Energy Networks for 3D Human Pose Estimation and Object Reconstruction](http://openaccess.thecvf.com/content_CVPR_2019/papers/Jack_IGE-Net_Inverse_Graphics_Energy_Networks_for_Human_Pose_Estimation_and_CVPR_2019_paper.pdf) ([poster](https://jackd.github.io/images/ige-poster.pdf)).
 
 ```
 @InProceedings{jack2019ige,
