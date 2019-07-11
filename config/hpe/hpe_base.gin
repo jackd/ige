@@ -1,6 +1,6 @@
 import ige.runners
 import ige.hpe.problem
-import ige.hpe.models
+import ige.hpe.nets
 import ige.hpe.losses
 
 include 'base.gin'

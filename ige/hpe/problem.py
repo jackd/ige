@@ -141,6 +141,7 @@ class HpeProblem(TfdsProblem):
             scale_aligned=None, proc_aligned=None, scale_err=None,
             proc_err=None):
         """Visualize numpy data output of previs for a single example."""
+        import matplotlib.pyplot as plt
         from ige.hpe.vis import vis2d
         from ige.hpe.vis import vis3d
         from ige.hpe.vis import show
@@ -148,10 +149,10 @@ class HpeProblem(TfdsProblem):
         skeleton_3d = config.skeleton_3d
         skeleton_2d = config.skeleton_2d
         vis2d(skeleton_2d, pose_2d, linewidth=1)
-        plt.set_title('Model input')
+        plt.title('Model input')
         if predictions is None:
             vis3d(skeleton_3d, labels, linewidth=1)
-            plt.set_title('Label')
+            plt.title('Label')
         else:
             for pred, name in (
                     (scale_aligned, 'scale'),
@@ -160,7 +161,8 @@ class HpeProblem(TfdsProblem):
                 vis3d(
                     skeleton_3d, pred, linestyle='dashed', linewidth=2,
                     ax=ax)
-                plt.set_title('%s aligned prediction (dashed) vs ground truth')
+                plt.title(
+                    '%s aligned prediction (dashed) vs ground truth' % name)
             print('opt_scale err: %f' % scale_err)
             print('proc err: %f' % proc_err)
         show()

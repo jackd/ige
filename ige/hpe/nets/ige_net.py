@@ -104,13 +104,13 @@ def get_ige_inference(
     """
     p2 = inputs['pose_2d']
     if y0_inference_fn is None:
-        from ige.hpe.models import get_baseline_inference
+        from ige.hpe.nets import get_baseline_inference
         y0_inference_fn = get_baseline_inference
     y0 = y0_inference_fn(p2, output_spec)
 
-    # load weights
-    y0_model = tf.keras.models.Model(inputs=p2, outputs=y0)
     if y0_model_weights_path is not None:
+        # load weights
+        y0_model = tf.keras.models.Model(inputs=p2, outputs=y0)
         y0_model_weights_path = os.path.expanduser(y0_model_weights_path)
         if os.path.isdir(y0_model_weights_path):
             from ige.callbacks import restore_model
@@ -119,8 +119,7 @@ def get_ige_inference(
             y0_model.load_weights(y0_model_weights_path)
             logging.info('Restored weights from %s' % y0_model_weights_path)
     
-    inner_opt = inner_opt_fn(
-        energy_fn, num_optimized=1)
+    inner_opt = inner_opt_fn(energy_fn, num_optimized=1)
     
     intrinsics = inputs['intrinsics']
     final_pred, predictions = inner_opt([

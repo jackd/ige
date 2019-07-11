@@ -42,8 +42,8 @@ is_v1 = tf_version.version[0] == 1
 is_v1_13 = is_v1 and tf_version.version[1] == 13
 
 if is_v1_13:
-    from tensorflow.python.keras import losses
-    from tensorflow.python.keras import metrics
+    from tensorflow.python.keras import losses  # pylint: disable=no-name-in-module
+    from tensorflow.python.keras import metrics # pylint: disable=no-name-in-module
     tf.keras.metrics.Metric = metrics.Metric
 
     class LossFunctionWrapper(object):

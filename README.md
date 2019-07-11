@@ -2,7 +2,7 @@
 
 Code for [IGE-Net: Inverse Graphics Energy Networks for 3D Human Pose Estimation and Object Reconstruction](http://openaccess.thecvf.com/content_CVPR_2019/papers/Jack_IGE-Net_Inverse_Graphics_Energy_Networks_for_Human_Pose_Estimation_and_CVPR_2019_paper.pdf) ([poster](https://jackd.github.io/images/ige-poster.pdf)).
 
-```
+```bib
 @InProceedings{jack2019ige,
 author = {Jack, Dominic and Maire, Frederic and Shirazi, Sareh and Eriksson, Anders},
 title = {IGE-Net: Inverse Graphics Energy Networks for Human Pose Estimation and Single-View Reconstruction},
@@ -62,7 +62,8 @@ If running through `__main__.py` (advised), note all `.gin` files are relative t
 3. `IGE_DIR/config`, where `IGE_DIR` is the location of this repository.
 
 Models are saved to `~/ige_models` by default, but this can be overriden
-```
+
+```bash
 --gin_param='@default_model_dir.base_dir = "~/my/models_dir/"'
 ```
 
@@ -70,7 +71,8 @@ Models are saved to `~/ige_models` by default, but this can be overriden
 
 ### Installation
 
-Clone this repository and install dependencies
+1. Install [tensorflow>=1.13,<2.0](https://github.com/tensorflow.org).
+2. Clone this repository and install dependencies
 
 ```bash
 cd /path/to/parent_dir
