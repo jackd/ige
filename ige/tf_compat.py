@@ -19,23 +19,20 @@ import six
 
 import distutils.version
 import tensorflow as tf
-import tensorflow_datasets as tfds
 
-# tfds checksums
-try:
-    import os
-    tfds.core.download.checksums._CHECKSUM_DIRS.append(os.path.realpath(
-        os.path.join(os.path.dirname(__file__), 'url_checksums')))
-    tfds.core.download.checksums._checksum_paths.cache_clear()
-except AttributeError:
-    # later versions of tfds don't have tfds.core.download.checksums
-    # bug seems fixed in these?
-    pass
+def enable_checksums_dir():
+    import tensorflow_datasets as tfds
+    # tfds checksums
+    try:
+        import os
+        tfds.core.download.checksums._CHECKSUM_DIRS.append(os.path.realpath(
+            os.path.join(os.path.dirname(__file__), 'url_checksums')))
+        tfds.core.download.checksums._checksum_paths.cache_clear()
+    except AttributeError:
+        # later versions of tfds don't have tfds.core.download.checksums
+        # bug seems fixed in these?
+        pass
 
-
-# clean up namespace
-del tfds
-del os
 
 tf_version = distutils.version.LooseVersion(tf.__version__)
 is_v1 = tf_version.version[0] == 1

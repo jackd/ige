@@ -19,6 +19,7 @@ from ige.hpe.data import skeleton as s
 from ige.hpe.data import h3m
 from ige.hpe.data import mpii
 from ige.hpe.data import builder as b
+from ige.tf_compat import enable_checksums_dir
 
 SPACE_SCALE = 1000.0  # mm -> m
 
@@ -45,7 +46,7 @@ class HpeProblem(TfdsProblem):
             include_intrinsics: whether or not to include camera intrinsics
               in the dataset inputs.
             prediction_is_sequence: If True, metrics and losses will expect
-              a sequence of predictions on the first dimension. 
+              a sequence of predictions on the first dimension.
               `self.output_spec` will remain unchanged.
             loss_decay: if `prediction_is_sequence`, this value weights the
               steps exponentially, ignored otherwise.
@@ -62,7 +63,7 @@ class HpeProblem(TfdsProblem):
         p3f = builder.info.features['pose_3d']
         output_spec = tf.keras.layers.InputSpec(
             shape=p3f.shape, dtype=p3f.dtype)
-        
+
         alignments = (
         (Alignment.OPT_SCALE, Alignment.PROCRUSTES) if include_procrustes
         else (Alignment.OPT_SCALE,))
@@ -84,11 +85,12 @@ class HpeProblem(TfdsProblem):
                 order=1)
             for alignment in alignments]
 
+        enable_checksums_dir()
         if download_and_prepare:
             builder.download_and_prepare()
             download_and_prepare = False
         intrinsics = builder.load_camera_params()[1]
-        
+
         def map_fn(inputs):
             subject_id, camera_id = (
                 inputs[k] for k in ('subject_id', 'camera_id'))
@@ -106,7 +108,7 @@ class HpeProblem(TfdsProblem):
         if prediction_is_sequence:
             loss = MultiStepLoss(loss, base_ndims=3, loss_decay=loss_decay)
             metrics = [FinalStepMetric(met, base_ndims=3) for met in metrics]
-        
+
         self._prediction_is_sequence = prediction_is_sequence
         super(HpeProblem, self).__init__(
             builder, loss, metrics, output_spec=output_spec,
@@ -114,7 +116,7 @@ class HpeProblem(TfdsProblem):
             as_supervised=False, shuffle_buffer=shuffle_buffer,
             download_and_prepare=download_and_prepare)
 
-    
+
     def previs(self, inputs, labels, predictions=None):
         """Called before vis."""
         # can be merged into vis in 2.0/when eager mode is norm.
@@ -136,7 +138,7 @@ class HpeProblem(TfdsProblem):
             out['proc_err'] = pose_loss(labels, proc_aligned, order=1)
 
         return out
-    
+
     def vis(self, pose_2d, labels, predictions=None,
             scale_aligned=None, proc_aligned=None, scale_err=None,
             proc_err=None):

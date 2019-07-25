@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import gin
@@ -9,10 +11,6 @@ import random
 from ige.problem import Problem
 from ige.vox.metrics import IoU
 from shape_tfds.shape.shapenet import core
-from shape_tfds.shape.shapenet.core.render import ShapenetCoreRenderConfig
-from shape_tfds.shape.shapenet.core.voxel import ShapenetCoreVoxelConfig
-from shape_tfds.shape.shapenet.core.frustum_voxel import \
-    ShapenetCoreFrustumVoxelConfig
 
 
 SYNSET_13 = (
@@ -21,7 +19,7 @@ SYNSET_13 = (
     "car",
     "chair",
     "lamp",
-    "monitor",
+    "display", # monitor
     "plane",
     "rifle",
     "sofa",
@@ -34,115 +32,123 @@ SYNSET_13 = (
 SEEDS_24 = tuple(range(24))
 
 
-class VoxProblem(Problem):
-    def _get_render_builders(self, image_resolution, synset_id, mutators):
-        return tuple(
-            core.ShapenetCore(config=ShapenetCoreRenderConfig(
-            synset_id, image_resolution, mutator)) for mutator in mutators) 
+def _read_data(data, builder):
+    return builder.info.features.decode_example(
+        builder._file_format_adapter._parser.parse_example(data))
 
-    def _get_voxel_builder(self, voxel_resolution, synset_id, mutators):
-        return core.ShapenetCore(
-            config=ShapenetCoreVoxelConfig(synset_id, voxel_resolution))
-            
+
+def _get_tfrecord_paths(builder, split):
+    prefix = '%s-%s' % (builder.name.split('/')[0], split)
+    data_dir = builder.data_dir
+    record_fns = tuple(
+        os.path.join(data_dir, fn) for fn in sorted(os.listdir(data_dir))
+        if fn.startswith(prefix))
+    return record_fns
+
+
+class VoxProblem(Problem):
     def __init__(
             self,
             loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
             metrics=(IoU,), synsets=SYNSET_13, num_views=24,
-            image_resolution=(128, 128), voxel_resolution=32):
+            image_resolution=(128, 128), voxel_resolution=32,
+            use_frustum_voxels=False, shuffle_buffer=512):
         all_ids, all_names = core.load_synset_ids()
-        indices = {id_: i for i, id_ in enumerate(sorted(all_names))}
         synsets = tuple(all_ids.get(synset, synset) for synset in synsets)
         for synset in synsets:
             if synset not in all_names:
                 raise ValueError('Invalid synset %s' % synset)
 
-        self._builders = {}
-        self._voxel_builders = {}
-        for synset in synsets:
-            index = indices[synset]
-            seeds = (100*index + i for i in range(num_views))
-            mutators = tuple(
-                core.SceneMutator(name='base%03d' % seed, seed=seed)
-                for seed in seeds)
-            self._builders[synset] = (
-                self._get_render_builders(image_resolution, synset, mutators),
-                self._get_voxel_builder(voxel_resolution, synset, mutators))
+        # image_builders
+        self._image_builders = []
+        import tensorflow_datasets as tfds
+        dl_config = tfds.core.download.DownloadConfig(register_checksums=True)
+        # dl_config = None
+        for view in range(num_views):
+            for synset in synsets:
+                builder = core.ShapenetCore(
+                    config=core.ShapenetCoreRenderingsConfig(
+                        synset, resolution=image_resolution, seed=view))
+                builder.download_and_prepare(download_config=dl_config)
+                self._image_builders.append(builder)
+
+        # vox_builders
+        self._vox_builders = []
+        if use_frustum_voxels:
+            for view in range(num_views):
+                for synset in synsets:
+                    builder = core.ShapenetCore(
+                        config=core.ShapenetCoreFrustumVoxelConfig(
+                            synset, resolution=voxel_resolution, seed=view))
+                    builder.download_and_prepare(download_config=dl_config)
+                    self._vox_builders.append(builder)
+        else:
+            for synset in synsets:
+                builder = core.ShapenetCore(
+                    config=core.ShapenetCoreVoxelConfig(
+                        synset, resolution=voxel_resolution,
+                        from_file_mapping=True))
+                builder.download_and_prepare(download_config=dl_config)
+                self._vox_builders.append(builder)
+            self._vox_builders = self._vox_builders * num_views
+
         self._metrics = tuple(metrics)
         self._loss = loss
         self._num_views = num_views
-    
-    def _get_zipped_datasets(
-            self, synset_id, render_builders, voxel_builder, split):
-        vox_dataset = voxel_builder.as_dataset(
-            split=split, shuffle_files=False)
-        datasets = [tf.data.Dataset.zip(
-            (b.as_dataset(split=split, shuffle_files=False), vox_dataset))
-            for b in render_builders]
-        
-        return datasets
+        self._num_synsets = len(synsets)
+        self._shuffle_buffer = shuffle_buffer
 
-    def _get_all_zipped_datasets(self, split):
-        import numpy as np
-        datasets = []
-        for k, v in self._builders.items():
-            ds = list(self._get_zipped_datasets(k, *v, split=split))
-            if split == tfds.Split.TRAIN:
-                random.shuffle(ds)
-            datasets.append(ds)
-        # order such that we iterate over synsets first, then view index
-        datasets = np.array(datasets).T  # out shape (num_views, num_synsets)
-        return datasets
-    
+    def _get_builders(self, split):
+        if split == tfds.Split.TRAIN:
+            return self._image_builders, self._vox_builders
+        else:
+            return (
+                self._image_builders[:self._num_synsets],
+                self._vox_builders[:self._num_synsets])
+
     def get_dataset(self, split, batch_size=None):
-        datasets = self._get_all_zipped_datasets(split)
+        image_builders, vox_builders = self._get_builders(split)
+        image_paths = [_get_tfrecord_paths(b, split) for b in image_builders]
+        vox_paths =  [_get_tfrecord_paths(b, split) for b in vox_builders]
+        num_paths = len(image_paths)
+        assert(len(vox_paths) == num_paths)
+        if split == tfds.Split.TRAIN:
+            perm = np.random.permutation(len(image_paths))
+            image_paths = np.array(image_paths)[perm]
+            vox_paths = np.array(vox_paths)[perm]
 
-        def map_fn(rendering_data, voxel_data):
-            image = rendering_data['image']
-            voxels = voxel_data['voxels']
-            voxels = tf.expand_dims(voxels, axis=-1)
+        image_dataset = tf.data.TFRecordDataset(
+            image_paths, num_parallel_reads=num_paths)
+        vox_dataset = tf.data.TFRecordDataset(
+            vox_paths, num_parallel_reads=num_paths)
+
+        dataset = tf.data.Dataset.zip(
+            dict(image=image_dataset, voxels=vox_dataset))
+        if split == tfds.Split.TRAIN:
+            dataset = dataset.shuffle(self._shuffle_buffer).repeat()
+
+        def map_fn(data):
+            image = _read_data(data['image'], image_builders[0])['image']
+            voxels = _read_data(data['voxels'], vox_builders[0])['voxels']
+            image = tf.cast(image, tf.float32)
             image = tf.image.per_image_standardization(image)
             return image, voxels
-        
 
-        
-        datasets = tuple(ds.map(map_fn) for ds in datasets)
-        dataset = datasets[0]
-        for ds in datasets[1:]:
-            dataset = dataset.concatenate(ds)
-        
-        if split == tfds.Split.TRAIN:
-            dataset = dataset.shuffle(256).batch(batch_size)
-        dataset = dataset.prefetch(
-            tf.data.experimental.AUTOTUNE)
-        
-     
+        dataset = dataset.map(
+            map_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        if batch_size is not None:
+            dataset = dataset.batch(batch_size)
+        return dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
     def examples_per_epoch(self, split=tfds.Split.TRAIN):
-        num_examples = 0
-        for render_builders, _ in self._builders.items():
-            if split == tfds.Split.TRAIN:
-                for render_builder in render_builders:
-                    num_examples += int(render_builder.info.splits[
-                        split].num_examples)
-            else:
-                nu_examples += int(render_builders[0].info.splits[
-                    split].num_examples)
-        return num_examples
+        image_builders, _ = self._get_builders(split)
+        return sum(
+            int(b.info.splits[split].num_examples) for b in image_builders)
 
-    
     @property
     def loss(self):
         return self._loss
-    
+
     @property
     def metrics(self):
         return self._metrics
-
-
-class FrustumVoxProblem(VoxProblem):
-        
-    def _get_voxel_builder(self, voxel_resolution, synset_id, mutators):
-        return tuple(
-            core.ShapenetCore(config=ShapenetCoreFrustumVoxelConfig(
-            synset_id, voxel_resolution, mutator.copy()))
-            for mutator in mutators) 

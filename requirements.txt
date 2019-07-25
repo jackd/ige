@@ -3,3 +3,4 @@ numpy
 tensorflow_datasets
 gin-config
 tqdm
+git+git://github.com/jackd/shape-tfds.git@master
